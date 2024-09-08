@@ -24,18 +24,15 @@ const collectionName = "service";
 
 async function run() {
   try {
-    // Connect to MongoDB
     await client.connect();
     console.log("Connected to MongoDB!");
 
-    // Access the database and collection
     const database = client.db(databaseName);
     const collection = database.collection(collectionName);
 
-    // Define the route to get all services
     app.get('/services', async (req, res) => {
       try {
-        const cursor = collection.find(); // Use the collection object
+        const cursor = collection.find();
         const result = await cursor.toArray();
         res.status(200).json(result);
       } catch (error) {
@@ -44,14 +41,14 @@ async function run() {
       }
     });
 
-    // Define the route to get a specific service by ID
     app.get('/services/:id', async (req, res) => {
       try {
         const id = req.params.id;
-        const query = { _id: new ObjectId(id) }; // Use ObjectId to match the MongoDB document ID
-        const result = await collection.findOne(query); // Use collection object, not collectionName
-        if (result) {
-          res.status(200).json(result);
+        const query = { _id: new ObjectId(id) };
+        const service = await collection.findOne(query);
+    
+        if (service) {
+          res.status(200).json(service);
         } else {
           res.status(404).json({ error: 'Service not found' });
         }
@@ -61,7 +58,27 @@ async function run() {
       }
     });
 
-    // Ping the database to confirm connection
+    app.post('/services/:id/review', async (req, res) => {
+      const serviceId = req.params.id;
+      const { comment, author } = req.body;
+    
+      try {
+        const service = await collection.findOne({ _id: new ObjectId(serviceId) });
+        if (service) {
+          await collection.updateOne(
+            { _id: new ObjectId(serviceId) },
+            { $push: { reviews: { comment, author, date: new Date() } } }
+          );
+          res.status(200).send({ message: 'Review added successfully!' });
+        } else {
+          res.status(404).send({ message: 'Service not found!' });
+        }
+      } catch (error) {
+        console.error('Error adding review:', error);
+        res.status(500).send({ message: 'Error adding review', error });
+      }
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. Successfully connected to MongoDB!");
 
